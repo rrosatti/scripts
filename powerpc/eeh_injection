@@ -1,0 +1,27 @@
+#!/bin/bash
+
+# PCI ID
+pci_domain_id=$1
+# counter
+count=0
+# time the script will be running
+running_time=1200
+SECONDS=0
+
+if [[ -n "$pci_domain_id" ]]; then
+        # increase debug level
+	echo 8 > /proc/sys/kernel/printk
+	# increase max EEH injections
+	echo 4096 > /sys/kernel/debug/powerpc/eeh_max_freezes
+	# the below script will inject EEH for X seconds, using an interval of 30 seconds
+	echo "EEH INJECTION SCRIPT STARTS HERE ###################################### -- rrg" > /dev/kmsg
+        while (( SECONDS < running_time )); do
+                echo "EEH $(( ++count )) ##################################################### -- rrg" > /dev/kmsg
+                echo 0x8000000000000000 > /sys/kernel/debug/powerpc/PCI$pci_domain_id/err_injct_inboundA
+                sleep 1
+                echo 0x0 > /sys/kernel/debug/powerpc/PCI$pci_domain_id/err_injct_inboundA
+                sleep 30
+        done
+else
+        echo "You should pass the PCI domain ID as a paramater"
+fi
