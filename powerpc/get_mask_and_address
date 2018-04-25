@@ -1,0 +1,36 @@
+#!/bin/bash
+
+pci_address=$1
+
+lspci_command="lspci -s $pci_address -v"
+
+addr="$($lspci_command -b | grep -m1 'Memory at' | awk '{print $3}')"
+size="$($lspci_command    | grep -m1 'Memory at' | grep -o 'size=[^]]\+' | cut -d= -f2)"
+bits="$($lspci_command    | grep -m1 'Memory at' | grep -o '64-bit')"
+
+# mask; step 1: convert size to numbers
+
+unit="${size##*[0-9]}"
+[ -n "$unit" ] && size="${size%?}"
+
+case "$unit" in
+'') true ;; # bytes
+K) : $((size *= 1024 ** 1)) ;; # kibibytes
+M) : $((size *= 1024 ** 2)) ;; # mebibytes
+G) : $((size *= 1024 ** 3)) ;; # gibibytes
+*) false ;; # error
+esac
+
+# mask; step 2: obtain 32-bit mask (negate the address range [0, size-1])
+
+mask="$(( ~(size-1) ))"
+mask="$(printf '%08x\n' $mask | grep -o '........$')" # grep: the 8 trailing digits, for negative numbers.
+
+# mask; step 3: (64-bit address only) prepend 32-bit prefix to the 32-bit mask (then a 64-bit mask)
+[ "$bits" = '64-bit' ] && mask="0000ffff${mask}"
+
+echo
+printf m=$mask
+echo
+printf a=$addr
+echo
